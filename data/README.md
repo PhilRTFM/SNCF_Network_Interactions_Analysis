@@ -1,6 +1,6 @@
 # Données
 
-- `brut/` : fichiers téléchargés, sous leur nom d'origine, à ne jamais modifier (liste et liens : `brut/A_TELECHARGER.md`).
+- `brut/` : fichiers téléchargés, sous leur nom d'origine, à ne jamais modifier (liste et liens : `brut/A_TELECHARGER.md`). Seuls les trois fichiers Etalab sont dans le dépôt ; les autres sont exclus par `.gitignore`.
 - `genere/` : fichiers produits par `preprocessing_datasets.py`. Le notebook `analyse_reseau.ipynb` ne lit que ce dossier.
 
 Les CSV SNCF utilisent le séparateur `;` et l'encodage UTF-8 avec BOM : les lire avec `encoding="utf-8-sig"`. Les zip ne sont pas décompressés, le script les lit directement.
@@ -36,9 +36,9 @@ Tout recréer : `python preprocessing_datasets.py`. Une seule étape : `--etapes
 
 | Fichier | Contenu |
 |---|---|
-| `villes.csv` | une ligne par ville : `id` (code INSEE), `nom`, `departement`, `region`, `lon`, `lat`, `nb_gares`, `voyageurs_2025`, `population`, `nb_trains_jour`, `desservie`, `statut_desserte` (desservie, non desservie, inconnue en Île-de-France), `reseau_principal` |
+| `villes.csv` | une ligne par ville : `id` (code INSEE ; `COMMUNE|DÉPARTEMENT` pour les 14 villes que le script n'a pas pu rattacher), `nom`, `departement`, `region`, `lon`, `lat`, `nb_gares`, `voyageurs_2025`, `population`, `nb_trains_jour`, `desservie`, `statut_desserte` (desservie, non desservie, inconnue en Île-de-France), `reseau_principal` |
 | `liaisons.csv` | une ligne par liaison ville → ville : `code_ligne`, `type_ligne` (LGV ou classique), `lgv`, `part_lgv`, `nb_trains_jour` (deux sens), `longueur_km` (**poids du graphe** : tracé, sinon points kilométriques), `distance_km` (points kilométriques), `distance_trace_km` (tracé), `vol_oiseau_km`, `detour` |
 | `regions.csv`, `departements.csv` | communes, communes avec gare, population, villes desservies ou non, parts en % (Corse exclue : hors RFN) |
-| `reseau_villes.cyjs` | le réseau des villes pour Cytoscape |
+| `reseau_villes.cyjs` | le réseau des villes pour Cytoscape : un nœud par ligne de `villes.csv`, une arête par ligne de `liaisons.csv`, toutes les colonnes en attributs, plus la clé `cle` (voir le README principal) |
 
 Fichiers intermédiaires : `nodes.csv`, `edges.csv` (réseau gare → gare), `historique_*.csv` (réseau des voies), `gtfs_fr_*.csv` et `gtfs_de_*.csv` (réseaux desservis), `reseau_ferre.cyjs` (réseau des gares pour Cytoscape).

@@ -1,0 +1,14 @@
+# Données brutes téléchargées : trop lourdes pour le dépôt (latest.zip fait 300 Mo).
+# Liste et liens : data/brut/A_TELECHARGER.md. On ne garde que cette liste et le référentiel Etalab.
+data/brut/*
+!data/brut/A_TELECHARGER.md
+!data/brut/communes.json
+!data/brut/departements.json
+!data/brut/regions.json
+
+# Supports de cours : pas dans le dépôt
+cours/
+
+# Python et Jupyter
+__pycache__/
+.ipynb_checkpoints/

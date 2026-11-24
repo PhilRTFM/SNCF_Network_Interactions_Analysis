@@ -1,27 +1,63 @@
-# Fichiers à déposer dans ce dossier
+# Fichiers à télécharger dans `data/brut/`
 
-Garder le nom d'origine de chaque fichier téléchargé : le script `preprocessing_datasets.py` les lit sous ces noms. Ne jamais modifier ces fichiers.
+Ces fichiers ne sont pas dans le dépôt : ils sont trop lourds et `.gitignore` les exclut. Ils ne servent qu'à refaire le prétraitement ; pour exécuter le notebook, les tables de `data/genere/` suffisent.
 
-Sur les pages SNCF, le CSV se télécharge depuis l'onglet « Export ».
+Règles :
+- garder le **nom d'origine** de chaque fichier : `preprocessing_datasets.py` les lit sous ces noms ;
+- ne pas les modifier ni décompresser les `.zip` : le script les lit directement ;
+- sur les pages SNCF, le CSV se télécharge depuis l'onglet **« Export »** (format CSV).
 
-| Fichier | Lien |
-|---|---|
-| `liste-des-gares.csv` | https://ressources.data.sncf.com/explore/dataset/liste-des-gares/ |
-| `fichier-de-formes-des-voies-du-reseau-ferre-national.csv` | https://ressources.data.sncf.com/explore/dataset/fichier-de-formes-des-voies-du-reseau-ferre-national/ |
-| `vitesse-maximale-nominale-sur-ligne.csv` | https://ressources.data.sncf.com/explore/dataset/vitesse-maximale-nominale-sur-ligne/ |
-| `lignes-par-statut.csv` | https://ressources.data.sncf.com/explore/dataset/lignes-par-statut/ |
-| `frequentation-gares.csv` | https://ressources.data.sncf.com/explore/dataset/frequentation-gares/ |
-| `Export_OpenData_SNCF_GTFS_NewTripId.zip` | https://eu.ftp.opendatasoft.com/sncf/plandata/Export_OpenData_SNCF_GTFS_NewTripId.zip (page : https://ressources.data.sncf.com/explore/dataset/horaires-sncf/) |
-| `latest.zip` | https://gtfs.de/en/feeds/de_full/ (bonus Allemagne) |
+Fichiers téléchargés le 24/11/2026. Le script analyse les trains du mardi 01/12/2026 (constante `JOUR_TYPE`) : avec des horaires téléchargés plus tard, choisir un mardi couvert par les deux GTFS.
 
-Déjà présents dans ce dossier (référentiel Etalab, https://github.com/etalab/decoupage-administratif) :
+## 1. SNCF Réseau : l'infrastructure
 
-| Fichier | Lien |
-|---|---|
-| `communes.json` | https://unpkg.com/@etalab/decoupage-administratif/data/communes.json |
-| `departements.json` | https://unpkg.com/@etalab/decoupage-administratif/data/departements.json |
-| `regions.json` | https://unpkg.com/@etalab/decoupage-administratif/data/regions.json |
+| Fichier | Page de téléchargement | Taille | Étape du script |
+|---|---|---|---|
+| `liste-des-gares.csv` | https://ressources.data.sncf.com/explore/dataset/liste-des-gares/ | 2 Mo | `gares`, `historique` |
+| `fichier-de-formes-des-voies-du-reseau-ferre-national.csv` | https://ressources.data.sncf.com/explore/dataset/fichier-de-formes-des-voies-du-reseau-ferre-national/ | 47 Mo | `gares` |
+| `vitesse-maximale-nominale-sur-ligne.csv` | https://ressources.data.sncf.com/explore/dataset/vitesse-maximale-nominale-sur-ligne/ | 9 Mo | `gares` |
+| `lignes-par-statut.csv` | https://ressources.data.sncf.com/explore/dataset/lignes-par-statut/ | 10 Mo | `historique` |
 
-`horaires-sncf.csv`, téléchargé depuis la page du GTFS SNCF, n'est pas utilisé : c'est la description du jeu de données, pas les horaires.
+## 2. SNCF Voyageurs : fréquentation et horaires
 
-Les fichiers ont été téléchargés le 24/11/2026.
+| Fichier | Page de téléchargement | Taille | Étape du script |
+|---|---|---|---|
+| `frequentation-gares.csv` | https://ressources.data.sncf.com/explore/dataset/frequentation-gares/ | 0,2 Mo | `gares` |
+| `Export_OpenData_SNCF_GTFS_NewTripId.zip` | lien direct : https://eu.ftp.opendatasoft.com/sncf/plandata/Export_OpenData_SNCF_GTFS_NewTripId.zip (page : https://ressources.data.sncf.com/explore/dataset/horaires-sncf/) | 5,5 Mo | `trafic`, `gtfs` |
+
+## 3. Allemagne (bonus seulement)
+
+| Fichier | Page de téléchargement | Taille | Étape du script |
+|---|---|---|---|
+| `latest.zip` | https://gtfs.de/en/feeds/de_full/ (« Germany full », données DELFI e.V.) | 300 Mo | `gtfs` |
+
+## Déjà dans le dépôt : référentiel Etalab
+
+Rien à télécharger. Source : https://github.com/etalab/decoupage-administratif
+
+| Fichier | Lien | Étape du script |
+|---|---|---|
+| `communes.json` | https://unpkg.com/@etalab/decoupage-administratif/data/communes.json | `table` |
+| `departements.json` | https://unpkg.com/@etalab/decoupage-administratif/data/departements.json | `table` |
+| `regions.json` | https://unpkg.com/@etalab/decoupage-administratif/data/regions.json | `table` |
+
+## À ne pas télécharger
+
+`horaires-sncf.csv`, proposé sur la page du GTFS SNCF, est la description du jeu de données et non les horaires : le script ne l'utilise pas.
+
+## Contenu attendu du dossier
+
+```
+data/brut/
+├── A_TELECHARGER.md
+├── communes.json                                              (dépôt)
+├── departements.json                                          (dépôt)
+├── regions.json                                               (dépôt)
+├── liste-des-gares.csv
+├── fichier-de-formes-des-voies-du-reseau-ferre-national.csv
+├── vitesse-maximale-nominale-sur-ligne.csv
+├── lignes-par-statut.csv
+├── frequentation-gares.csv
+├── Export_OpenData_SNCF_GTFS_NewTripId.zip
+└── latest.zip
+```
