@@ -4,7 +4,7 @@
   gares      réseau gares -> gares (PK + jonctions des voies, vitesse max -> temps) -> nodes.csv, edges.csv, reseau_ferre.cyjs
   trafic     nombre de trains par liaison, un mardi type (GTFS SNCF)      -> colonne nb_trains_jour de edges.csv
   historique réseau de voies, lignes actuelles + fermées/neutralisées     -> historique_nodes.csv, historique_edges.csv
-  gtfs       réseaux desservis France / Allemagne construits pareil       -> gtfs_{fr,de}_nodes.csv, gtfs_{fr,de}_edges.csv
+  gtfs       réseau desservi France (une gare par nœud, trains directs)   -> gtfs_fr_nodes.csv, gtfs_fr_edges.csv
   table      tables finales par ville (gares d'une commune regroupées)    -> villes.csv, liaisons.csv, regions.csv, departements.csv, reseau_villes.cyjs
              (n'utilise que les fichiers générés ci-dessus et le référentiel des communes Etalab)
 
@@ -35,11 +35,9 @@ FREQUENTATION = BRUT / "frequentation-gares.csv"
 STATUTS = BRUT / "lignes-par-statut.csv"
 VITESSES = BRUT / "vitesse-maximale-nominale-sur-ligne.csv"
 GTFS_FR = BRUT / "Export_OpenData_SNCF_GTFS_NewTripId.zip"  # Horaires SNCF (GTFS)
-GTFS_DE = BRUT / "latest.zip"  # gtfs.de, Germany full (de_full)
 
-JOUR_TYPE = "20261201"  # mardi hors vacances, couvert par les deux GTFS
+JOUR_TYPE = "20261201"  # mardi hors vacances, couvert par le GTFS SNCF
 TYPES_FERRO = {"2"} | {str(t) for t in range(100, 118)}  # GTFS : train (simple et étendu)
-EXCLURE_SBAHN_DE = True  # le GTFS SNCF n'a pas Transilien/RER : on retire les S-Bahn pour comparer à l'identique
 
 VOYAGEURS_SEULEMENT = True  # False pour garder aussi les gares fret
 RAYON_JONCTION_KM = 0.2  # distance max entre l'extrémité d'une ligne et la ligne qu'elle rejoint
@@ -368,10 +366,6 @@ def cle_station_fr(stops):
     return uic.where(uic.str.startswith("87", na=False))
 
 
-def cle_station_de(stops):
-    return stops["parent_station"].fillna(stops["stop_id"])
-
-
 # =====================================================================================
 # Étape « trafic » : nombre de trains par liaison du réseau gares -> gares
 # =====================================================================================
@@ -514,44 +508,16 @@ def etape_historique():
 
 
 # =====================================================================================
-# Étape « gtfs » : réseaux desservis France et Allemagne, construits de la même façon
+# Étape « gtfs » : réseau desservi France (une gare par nœud, une arête par paire d'arrêts consécutifs)
 # =====================================================================================
-# Contour simplifié de l'Allemagne (lon, lat), précision ~10-20 km : le GTFS allemand contient aussi
-# les gares étrangères desservies (Paris, Vienne, Stockholm...) et n'a pas de champ pays.
-CONTOUR_ALLEMAGNE = [
-    (5.95, 51.0), (6.0, 51.8), (6.7, 52.05), (7.0, 52.3), (7.05, 52.65), (7.2, 53.25), (6.6, 53.65),
-    (8.5, 54.0), (8.3, 55.1), (9.5, 54.85), (11.0, 54.55), (12.5, 54.6), (13.5, 54.8), (14.3, 53.95),
-    (14.4, 53.3), (14.15, 52.8), (14.65, 52.55), (14.75, 51.6), (15.05, 51.25), (14.8, 50.85),
-    (13.5, 50.65), (12.5, 50.35), (12.1, 50.3), (12.5, 49.7), (13.0, 49.3), (13.8, 48.8), (13.45, 48.55),
-    (12.95, 47.75), (13.0, 47.45), (12.2, 47.6), (11.0, 47.4), (10.2, 47.27), (9.6, 47.55), (8.6, 47.65),
-    (7.6, 47.55), (7.55, 48.1), (7.85, 48.6), (8.2, 48.97), (7.4, 49.17), (6.4, 49.45), (6.5, 49.75),
-    (6.1, 50.15), (6.4, 50.35), (6.0, 50.75),
-]
-
-
 def etape_gtfs():
-    from matplotlib.path import Path as Contour
-
-    def hors_sbahn(routes):
-        return ~routes["route_short_name"].fillna("").str.match(r"^S ?\d")
-
-    allemagne = Contour(CONTOUR_ALLEMAGNE)
-    for pays, chemin, cle, filtre in [
-        ("fr", GTFS_FR, cle_station_fr, None),
-        ("de", GTFS_DE, cle_station_de, hors_sbahn if EXCLURE_SBAHN_DE else None),
-    ]:
-        stations, paires = paires_gtfs(chemin, JOUR_TYPE, cle, filtre)
-        if pays == "de":
-            stations = stations[allemagne.contains_points(stations[["lon", "lat"]].to_numpy())]
-            ok = set(stations["id"])
-            paires = paires[paires["source"].isin(ok) & paires["target"].isin(ok)]
-            print(f"   Allemagne seule : {len(stations)} gares, {len(paires)} liaisons")
-        pos = stations.set_index("id")[["lon", "lat"]]
-        paires["vol_oiseau_km"] = [round(vol_oiseau_km(*pos.loc[a], *pos.loc[b]), 3)
-                                   for a, b in zip(paires.source, paires.target)]
-        stations.to_csv(GENERE / f"gtfs_{pays}_nodes.csv", index=False, encoding="utf-8")
-        paires.to_csv(GENERE / f"gtfs_{pays}_edges.csv", index=False, encoding="utf-8")
-    print("[gtfs] ok")
+    stations, paires = paires_gtfs(GTFS_FR, JOUR_TYPE, cle_station_fr)
+    pos = stations.set_index("id")[["lon", "lat"]]
+    paires["vol_oiseau_km"] = [round(vol_oiseau_km(*pos.loc[a], *pos.loc[b]), 3)
+                               for a, b in zip(paires.source, paires.target)]
+    stations.to_csv(GENERE / "gtfs_fr_nodes.csv", index=False, encoding="utf-8")
+    paires.to_csv(GENERE / "gtfs_fr_edges.csv", index=False, encoding="utf-8")
+    print(f"[gtfs] {len(stations)} gares, {len(paires)} liaisons directes")
 
 
 def etape_cyjs():

@@ -2,12 +2,9 @@
 
 Ces fichiers ne sont pas dans le dépôt : ils sont trop lourds et `.gitignore` les exclut. Ils ne servent qu'à refaire le prétraitement ; pour exécuter le notebook, les tables de `data/genere/` suffisent.
 
-Règles :
-- garder le **nom d'origine** de chaque fichier : `preprocessing_datasets.py` les lit sous ces noms ;
-- ne pas les modifier ni décompresser les `.zip` : le script les lit directement ;
-- sur les pages SNCF, le CSV se télécharge depuis l'onglet **« Export »** (format CSV).
+Chaque fichier garde son nom d'origine, car `preprocessing_datasets.py` les lit sous ces noms. On ne les modifie pas et on ne décompresse pas les `.zip`, que le script lit directement. Sur les pages SNCF, le CSV se télécharge depuis l'onglet « Export » (format CSV).
 
-Fichiers téléchargés le 24/11/2026. Le script analyse les trains du mardi 01/12/2026 (constante `JOUR_TYPE`) : avec des horaires téléchargés plus tard, choisir un mardi couvert par les deux GTFS.
+Fichiers téléchargés le 24/11/2026. Le script analyse les trains du mardi 01/12/2026 (constante `JOUR_TYPE`) : avec des horaires téléchargés plus tard, choisir un mardi couvert par le GTFS.
 
 ## 1. SNCF Réseau : l'infrastructure
 
@@ -24,12 +21,6 @@ Fichiers téléchargés le 24/11/2026. Le script analyse les trains du mardi 01/
 |---|---|---|---|
 | `frequentation-gares.csv` | https://ressources.data.sncf.com/explore/dataset/frequentation-gares/ | 0,2 Mo | `gares` |
 | `Export_OpenData_SNCF_GTFS_NewTripId.zip` | lien direct : https://eu.ftp.opendatasoft.com/sncf/plandata/Export_OpenData_SNCF_GTFS_NewTripId.zip (page : https://ressources.data.sncf.com/explore/dataset/horaires-sncf/) | 5,5 Mo | `trafic`, `gtfs` |
-
-## 3. Allemagne (bonus seulement)
-
-| Fichier | Page de téléchargement | Taille | Étape du script |
-|---|---|---|---|
-| `latest.zip` | https://gtfs.de/en/feeds/de_full/ (« Germany full », données DELFI e.V.) | 300 Mo | `gtfs` |
 
 ## Déjà dans le dépôt : référentiel Etalab
 
@@ -58,6 +49,5 @@ data/brut/
 ├── vitesse-maximale-nominale-sur-ligne.csv
 ├── lignes-par-statut.csv
 ├── frequentation-gares.csv
-├── Export_OpenData_SNCF_GTFS_NewTripId.zip
-└── latest.zip
+└── Export_OpenData_SNCF_GTFS_NewTripId.zip
 ```

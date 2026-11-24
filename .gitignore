@@ -1,4 +1,4 @@
-# Données brutes téléchargées : trop lourdes pour le dépôt (latest.zip fait 300 Mo).
+# Données brutes téléchargées : trop lourdes pour le dépôt.
 # Liste et liens : data/brut/A_TELECHARGER.md. On ne garde que cette liste et le référentiel Etalab.
 data/brut/*
 !data/brut/A_TELECHARGER.md
@@ -12,3 +12,6 @@ cours/
 # Python et Jupyter
 __pycache__/
 .ipynb_checkpoints/
+
+# Journal de py4cytoscape
+logs/

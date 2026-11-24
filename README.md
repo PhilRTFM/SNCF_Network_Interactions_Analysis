@@ -1,6 +1,6 @@
 # Le réseau ferré français vu comme un graphe
 
-Projet du cours *Metabolic networks / Graph analysis* (C. Frainay, F. Jourdan, INRAE Toxalim) : les méthodes d'analyse de graphes du cours appliquées au réseau ferré national (RFN), avec une comparaison avec l'Allemagne.
+Projet du cours *Metabolic networks / Graph analysis* (C. Frainay, F. Jourdan, INRAE Toxalim) : les méthodes d'analyse de graphes du cours appliquées au réseau ferré national (RFN).
 
 Le notebook `analyse_reseau.ipynb` est rédigé comme un rapport : pour chaque question, une figure suivie d'une légende qui en donne la lecture.
 
@@ -11,7 +11,7 @@ SNCF_Network_Interactions_Analysis/
 ├── README.md                    ce fichier
 ├── requirements.txt             bibliothèques Python
 ├── preprocessing_datasets.py    prétraitement : data/brut -> data/genere
-├── analyse_reseau.ipynb         rapport (déjà exécuté) : questions Q1 à Q11 et bonus
+├── analyse_reseau.ipynb         rapport (déjà exécuté) : questions Q1 à Q11 et contrôle Cytoscape
 ├── data/
 │   ├── README.md                description de chaque fichier, sources et colonnes
 │   ├── brut/                    fichiers téléchargés, sous leur nom d'origine
@@ -33,9 +33,9 @@ Pour refaire aussi le prétraitement :
 ## Du CSV au fichier Cytoscape
 
 Le prétraitement construit le graphe en trois temps :
-1. **gares → liaisons** : deux gares voyageurs voisines sur une même ligne (ordonnées par point kilométrique, `liste-des-gares.csv`) sont reliées ; les lignes sont raccordées entre elles aux bifurcations, repérées sur les tracés (`fichier-de-formes-des-voies-…csv`) ;
-2. **trafic** : chaque train du GTFS SNCF d'un mardi type est projeté sur l'itinéraire le plus rapide (vitesses de `vitesse-maximale-nominale-sur-ligne.csv`), ce qui donne le nombre de trains par jour de chaque liaison ;
-3. **villes** : toutes les gares d'une même commune INSEE (référentiel Etalab) forment un seul nœud ; chaque liaison est mesurée le long du tracé (`lignes-par-statut.csv`), avec sa part sur LGV.
+1. gares → liaisons : deux gares voyageurs voisines sur une même ligne (ordonnées par point kilométrique, `liste-des-gares.csv`) sont reliées ; les lignes sont raccordées entre elles aux bifurcations, repérées sur les tracés (`fichier-de-formes-des-voies-…csv`) ;
+2. trafic : chaque train du GTFS SNCF d'un mardi type est projeté sur l'itinéraire le plus rapide (vitesses de `vitesse-maximale-nominale-sur-ligne.csv`), ce qui donne le nombre de trains par jour de chaque liaison ;
+3. villes : toutes les gares d'une même commune INSEE (référentiel Etalab) forment un seul nœud ; chaque liaison est mesurée le long du tracé (`lignes-par-statut.csv`), avec sa part sur LGV.
 
 Il en sort deux tables, `villes.csv` (nœuds) et `liaisons.csv` (arêtes), puis le fichier Cytoscape `data/genere/reseau_villes.cyjs` (format JSON de Cytoscape.js), écrit par la fonction `ecrire_cyjs` du script :
 
@@ -49,13 +49,11 @@ Les valeurs manquantes deviennent `null`. Le fichier s'ouvre directement dans Cy
 
 ## Cytoscape et compte rendu PDF
 
-Chaque figure de réseau peut être refaite dans Cytoscape, piloté par le notebook avec [py4cytoscape](https://pypi.org/project/py4cytoscape/) :
+Chaque figure de réseau est refaite dans Cytoscape, piloté par le notebook avec [py4cytoscape](https://pypi.org/project/py4cytoscape/). Il suffit d'ouvrir Cytoscape (3.10 ou plus récent) avant d'exécuter le notebook : il est détecté automatiquement. Pour chaque question, les résultats sont ajoutés comme colonnes grâce à la clé `cle`, un style est créé, et la vue est exportée dans `figures/` (`*_cytoscape.png`) puis affichée sous la légende. Si Cytoscape est fermé, les cellules Cytoscape ne font rien.
 
-1. ouvrir Cytoscape (version 3.10 ou plus récente) ;
-2. dans la cellule « Cytoscape » du notebook, passer `CYTOSCAPE = True` ;
-3. exécuter tout le notebook : pour chaque question, les résultats sont ajoutés comme colonnes grâce à la clé `cle`, un style est créé, et la vue est exportée dans `figures/` (`*_cytoscape.png`) puis affichée sous la légende.
+Cytoscape calcule lui-même, avec Tools → Analyze Network, le degré (Q10) et l'excentricité en nombre de liaisons (Q11). Analyze Network ignore en revanche les poids des arêtes : les métriques en km (closeness, excentricité, betweenness, plus courts chemins : Q3 à Q7) sont donc calculées en Python avec NetworkX, puis ajoutées comme colonnes dans Cytoscape. Les cartes utilisent un placement géographique (x = longitude, y = latitude ; placement « preset » dans Cytoscape) et non un algorithme par forces ; le plan de métro de Q7 est dessiné par un algorithme schématique octolinéaire décrit dans le notebook.
 
-Avec `CYTOSCAPE = False` (par défaut), py4cytoscape n'est pas importé et les cellules Cytoscape ne font rien.
+La dernière section du notebook le vérifie : sans poids, Cytoscape et NetworkX donnent les mêmes valeurs (écart de l'ordre de 10⁻¹⁵) ; en km, les résultats changent nettement (centre Montluçon au lieu de Colombier-Saugnieu, corrélation de rang de 0,33 seulement pour la betweenness).
 
 Export en PDF : *File → Save and Export Notebook As → PDF*, ou, pour un rapport sans le code, `jupyter nbconvert --to pdf --no-input analyse_reseau.ipynb` (LaTeX requis).
 
@@ -74,4 +72,4 @@ Export en PDF : *File → Save and Export Notebook As → PDF*, ou, pour un rapp
 | Q9. Quelles villes ne sont pas connectées ? | composantes connexes | `Q9_non_desservies.png` |
 | Q10. Quelles gares sont les plus et les moins connectées ? | degré, distribution des degrés | `Q10_degre.png` |
 | Q11. Quel trajet passe obligatoirement par le plus de gares ? | plus court chemin et diamètre non pondérés | `Q11_plus_de_gares.png` |
-| Bonus. La France est-elle plus centralisée que l'Allemagne ? | métriques globales, modularité | `Bonus_France_Allemagne.png` |
+| Contrôle : les calculs de Cytoscape | métriques avec et sans poids | tableau |
