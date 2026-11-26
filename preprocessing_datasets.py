@@ -220,6 +220,11 @@ def ecrire_cyjs(nodes, edges, chemin, nom, scale=100):
             ],
         },
     }
+    # Cytoscape déduit le type d'une colonne de la première valeur lue : un premier élément sans valeur manquante
+    # garde les colonnes numériques en nombres (sinon une colonne qui commence par null devient du texte).
+    for elements in cy["elements"].values():
+        complet = next((i for i, e in enumerate(elements) if None not in e["data"].values()), 0)
+        elements.insert(0, elements.pop(complet))
     with open(chemin, "w", encoding="utf-8") as f:
         json.dump(cy, f, ensure_ascii=False)
 
@@ -547,6 +552,8 @@ LGV = {
 }
 TOLERANCE_TRACE = 0.3  # écart max admis entre longueur du tracé et longueur par points kilométriques
 SEUIL_LGV = 0.5  # une liaison est « LGV » si plus de la moitié de son tracé est sur LGV
+GRANDE_VITESSE_KMH = 250  # une ligne à grande vitesse est conçue pour au moins 250 km/h
+ECART_VITESSE_KM = 2.0  # distance max entre une portion de voie et le tronçon de vitesse qu'on lui associe
 REGION_SANS_GTFS = "11"  # Île-de-France : Transilien et RER absents du GTFS SNCF, desserte inconnue
 
 
@@ -590,6 +597,32 @@ def rattacher_insee(gares):
     return gares.drop(columns=["cle"])
 
 
+def vitesse_des_voies(voies):
+    """Vitesse maximale nominale (km/h) de chaque portion de voie : celle du tronçon de
+    vitesse-maximale-nominale-sur-ligne, de même code ligne, dont un point du tracé est le plus proche
+    du milieu de la portion (NaN au-delà de ECART_VITESSE_KM, ou pour les accès aux gares)."""
+    noeuds = pd.read_csv(GENERE / "historique_nodes.csv", dtype={"id": str}).set_index("id")
+    v = lire_csv_sncf(VITESSES).dropna(subset=["Geo Shape"])
+    v["V_MAX"] = pd.to_numeric(v["V_MAX"], errors="coerce")
+    points, vitesses = defaultdict(list), defaultdict(list)
+    for shape, code, vmax in zip(v["Geo Shape"], v["CODE_LIGNE"], v["V_MAX"]):
+        if pd.isna(vmax):
+            continue
+        geo = json.loads(shape)
+        for part in geo["coordinates"] if geo["type"] == "MultiLineString" else [geo["coordinates"]]:
+            for lon, lat in part:
+                points[code].append((lon * KX, lat * KY))
+                vitesses[code].append(vmax)
+    milieux = (noeuds.loc[voies["source"], ["lon", "lat"]].to_numpy()
+               + noeuds.loc[voies["target"], ["lon", "lat"]].to_numpy()) / 2 * [KX, KY]
+    resultat = np.full(len(voies), np.nan)
+    for code, idx in pd.Series(np.arange(len(voies))).groupby(voies["code_ligne"].to_numpy()).groups.items():
+        if code in points:
+            distance, j = cKDTree(np.array(points[code])).query(milieux[idx])
+            resultat[idx] = np.where(distance <= ECART_VITESSE_KM, np.array(vitesses[code])[j], np.nan)
+    return resultat
+
+
 def etape_table():
     """villes.csv + liaisons.csv : une ligne par ville (toutes ses gares regroupées) et par liaison ville -> ville."""
     gares = pd.read_csv(GENERE / "nodes.csv", dtype={"id": str})
@@ -597,31 +630,39 @@ def etape_table():
     voies = pd.read_csv(GENERE / "historique_edges.csv", dtype={"source": str, "target": str, "code_ligne": str})
 
     # 1. Longueur le long du tracé et part sur LGV, pour chaque liaison gare -> gare
-    voies = voies[voies["categorie"] == "exploitee"]
+    voies = voies[voies["categorie"] == "exploitee"].reset_index(drop=True)
+    voies["vmax"] = vitesse_des_voies(voies)
     T = nx.Graph()
-    for a, b, km, code in zip(voies.source, voies.target, voies.km, voies.code_ligne):
-        T.add_edge(a, b, km=km, lgv_km=km if code in LGV else 0.0)
-    trace, sur_lgv = [], []
+    for a, b, km, code, vmax in zip(voies.source, voies.target, voies.km, voies.code_ligne, voies.vmax):
+        connue = not np.isnan(vmax)
+        T.add_edge(a, b, km=km, lgv_km=km if code in LGV else 0.0,
+                   km_vitesse=km if connue else 0.0, heures=km / vmax if connue and vmax > 0 else 0.0,
+                   gv_km=km if connue and vmax >= GRANDE_VITESSE_KMH else 0.0)
+    cumuls = {c: [] for c in ["km", "lgv_km", "km_vitesse", "heures", "gv_km"]}
     for a, b in zip(liaisons.source, liaisons.target):
         try:
             chemin = nx.bidirectional_dijkstra(T, a, b, weight="km")[1]
-            trace.append(sum(T[u][v]["km"] for u, v in zip(chemin, chemin[1:])))
-            sur_lgv.append(sum(T[u][v]["lgv_km"] for u, v in zip(chemin, chemin[1:])))
+            for c in cumuls:
+                cumuls[c].append(sum(T[u][v][c] for u, v in zip(chemin, chemin[1:])))
         except (nx.NodeNotFound, nx.NetworkXNoPath):
-            trace.append(float("nan"))
-            sur_lgv.append(float("nan"))
-    liaisons["distance_trace_km"], liaisons["lgv_km"] = trace, sur_lgv
+            for c in cumuls:
+                cumuls[c].append(float("nan"))
+    liaisons["distance_trace_km"], liaisons["lgv_km"] = cumuls["km"], cumuls["lgv_km"]
+    # vitesse maximale moyenne le long du tracé (moyenne harmonique : la vitesse constante qui donne le même temps)
+    heures = pd.Series(cumuls["heures"], index=liaisons.index)
+    liaisons["vitesse_kmh"] = (pd.Series(cumuls["km_vitesse"], index=liaisons.index) / heures.where(heures > 0)).round(1)
+    liaisons["gv_km"] = cumuls["gv_km"]
     # Contrôle de cohérence : le tracé doit donner à peu près la même longueur que les points kilométriques.
     # Un écart de plus de 30 % signale un trou dans les tracés de lignes-par-statut (le chemin fait un grand détour).
     rapport = liaisons["distance_trace_km"] / liaisons["distance_km"]
     incoherent = (rapport > 1 + TOLERANCE_TRACE) | (rapport < 1 - TOLERANCE_TRACE)
-    liaisons.loc[incoherent, ["distance_trace_km", "lgv_km"]] = float("nan")
+    liaisons.loc[incoherent, ["distance_trace_km", "lgv_km", "gv_km", "vitesse_kmh"]] = float("nan")
     print(f"[table] tracé incohérent avec les PK (écart > {TOLERANCE_TRACE:.0%}) : {incoherent.sum()} liaisons, tracé mis à vide")
 
     # 2. Une ville = une commune INSEE ; ses coordonnées sont celles de sa gare la plus fréquentée
     gares = rattacher_insee(gares)
     gares["ville"] = gares["code_insee"].fillna(gares["commune"] + "|" + gares["departement"])
-    gares = gares.sort_values("total_voyageurs_2025", ascending=False)
+    gares = gares.sort_values("total_voyageurs_2025", ascending=False, kind="stable")  # tri stable : résultat reproductible
     villes = gares.groupby("ville", sort=False).agg(
         nom=("commune_insee", "first"), commune_sncf=("commune", "first"), departement=("dep", "first"),
         region=("region", "first"), lon=("lon", "first"), lat=("lat", "first"), nb_gares=("id", "size"),
@@ -633,18 +674,20 @@ def etape_table():
     liaisons["source"], liaisons["target"] = liaisons["source"].map(ville_de), liaisons["target"].map(ville_de)
     liaisons = liaisons[liaisons["source"] != liaisons["target"]]
     a, b = liaisons[["source", "target"]].min(axis=1), liaisons[["source", "target"]].max(axis=1)
-    liaisons = liaisons.assign(source=a, target=b).sort_values("distance_km")
+    liaisons = liaisons.assign(source=a, target=b).sort_values("distance_km", kind="stable")
     trains_paire = liaisons.groupby(["source", "target"])["nb_trains_jour"].sum()  # liaisons parallèles : trains additionnés
     liaisons = liaisons.drop_duplicates(["source", "target"])  # on garde la plus courte (tri par distance_km)
-    liaisons = liaisons[["source", "target", "distance_km", "distance_trace_km", "vol_oiseau_km", "lgv_km", "code_ligne"]]
+    liaisons = liaisons[["source", "target", "distance_km", "distance_trace_km", "vol_oiseau_km", "lgv_km", "gv_km",
+                         "vitesse_kmh", "code_ligne"]]
     liaisons["nb_trains_jour"] = trains_paire.loc[list(zip(liaisons.source, liaisons.target))].to_numpy()
     liaisons["part_lgv"] = (liaisons["lgv_km"] / liaisons["distance_trace_km"]).round(3)
     liaisons["lgv"] = liaisons["part_lgv"] > SEUIL_LGV
+    liaisons["part_grande_vitesse"] = (liaisons["gv_km"] / liaisons["distance_trace_km"]).round(3)  # part du tracé à 250 km/h ou plus
     liaisons["detour"] = (liaisons["distance_trace_km"] / liaisons["vol_oiseau_km"]).round(3)
     liaisons["longueur_km"] = liaisons["distance_trace_km"].fillna(liaisons["distance_km"])  # poids du graphe
     liaisons["type_ligne"] = liaisons["lgv"].map({True: "LGV", False: "classique"})  # texte : pratique dans Cytoscape
-    liaisons = liaisons[["source", "target", "code_ligne", "type_ligne", "lgv", "part_lgv", "nb_trains_jour",
-                         "longueur_km", "distance_km", "distance_trace_km", "vol_oiseau_km", "detour"]]
+    liaisons = liaisons[["source", "target", "code_ligne", "type_ligne", "lgv", "part_lgv", "vitesse_kmh",
+                         "part_grande_vitesse", "nb_trains_jour", "longueur_km", "distance_km", "distance_trace_km", "vol_oiseau_km", "detour"]]
 
     # 4. Attributs de desserte des villes
     trains = pd.concat([liaisons[["source", "nb_trains_jour"]].rename(columns={"source": "ville"}),

@@ -11,7 +11,8 @@ SNCF_Network_Interactions_Analysis/
 ├── README.md                    ce fichier
 ├── requirements.txt             bibliothèques Python
 ├── preprocessing_datasets.py    prétraitement : data/brut -> data/genere
-├── analyse_reseau.ipynb         rapport (déjà exécuté) : questions Q1 à Q11 et contrôle Cytoscape
+├── rapport.ipynb                rapport final (déjà exécuté) : 10 questions, figures faites dans Cytoscape
+├── analyse_reseau.ipynb         première version de l'analyse : questions Q1 à Q11 et contrôle Cytoscape
 ├── data/
 │   ├── README.md                description de chaque fichier, sources et colonnes
 │   ├── brut/                    fichiers téléchargés, sous leur nom d'origine
@@ -42,7 +43,7 @@ Il en sort deux tables, `villes.csv` (nœuds) et `liaisons.csv` (arêtes), puis 
 | Dans Cytoscape | Construit à partir de | Attributs (colonnes des tables Cytoscape) |
 |---|---|---|
 | un nœud par ville (2 597) | une ligne de `villes.csv` | toutes les colonnes : code INSEE, nom, département, région, coordonnées, nombre de gares, voyageurs 2025, population, trains par jour, statut de desserte ; plus `cle` (= `id`) et `name` (nom de la ville) |
-| une arête par liaison (3 182) | une ligne de `liaisons.csv` | toutes les colonnes : code de ligne, type (LGV ou classique), part sur LGV, trains par jour, longueur (poids du graphe), distances, détour ; plus `cle` (= `source~target`) et `interaction` (= `rail`) |
+| une arête par liaison (3 182) | une ligne de `liaisons.csv` | toutes les colonnes : code de ligne, type (LGV ou classique), part sur LGV, vitesse permise et part à 250 km/h ou plus, trains par jour, longueur (poids du graphe), distances, détour ; plus `cle` (= `source~target`) et `interaction` (= `rail`) |
 | position des nœuds | `lon`, `lat` | x = lon × 100, y = −lat × 145 : le réseau s'ouvre comme une carte de France |
 
 Les valeurs manquantes deviennent `null`. Le fichier s'ouvre directement dans Cytoscape (*File → Import → Network from File*). `data/genere/reseau_ferre.cyjs` est construit de la même façon à partir de `nodes.csv` et `edges.csv` (une gare par nœud, identifiée par son code UIC).
